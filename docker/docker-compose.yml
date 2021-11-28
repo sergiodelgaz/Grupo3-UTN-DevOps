@@ -4,10 +4,6 @@ services:
     container_name: apache2_php
     build: .
     volumes:
-      - "./configs/php/php.ini:/usr/local/etc/php/php.ini"
-      - "./configs/httpd/devops.site.conf:/etc/apache2/sites-available/000-default.conf"
-      - "./configs/app/.env:/var/www/html/myapp/.env"
-      - "./configs/app/config_app.sh:/tmp/config_app.sh"
       - "/var/www/utn-devops-app:/var/www/html"
     ports:
       - "8081:80" 

@@ -8,16 +8,21 @@ Vagrant.configure("2") do |config|
   # El directorio completo de boxes se puede ver en la siguiente URL atlas.hashicorp.com/boxes/search
   config.vm.box = "ubuntu/bionic64"
 
-  # Redirecciono puertos desde la maquina virtual a la maquina real. Por ejemplo 
-  # del puerto 80 (web) de la maquina virtual con Debian se podrá acceder a través
-  # del puerto 8081 de nuestro navegador.
-  # Esto se realiza para poder darle visibilidad a los puertos de la maquina virtual 
-  # y además para que no se solapen los puertos con los de nuestra equipo en el caso de que
-  # ese número de puerto este en uso.
-  config.vm.network "forwarded_port", guest: 80, host: 8081
-  config.vm.network "forwarded_port", guest: 3306, host: 4041
-  config.vm.network "forwarded_port", guest: 8080, host: 8090
-  config.vm.network "forwarded_port", guest: 4567, host: 4567
+  # Con la siguiente configuración se redireccionan los puertos desde la maquina virtual a la maquina real.
+  # A diferencia de lo que observamos en la unidad n°1, ahora el servicio que utiliza el puerto en realidad
+  # va a estar dentro de un contenedor Docker, por lo que el redireccionamiento de los puertos, en este ejemplo,
+  # tendran el mismo número. Para aclarar más este concepto, cuando nosotros ingresemos en nuestro navegador la
+  # url http://127.0.0.1:8081 la petición irá a la máquina virtual de VirtualBox (aprovisionada mediante Vagrant)
+  # y a su vez irá al puerto 8081 que expone el contenedor Docker mediante una redirección de puertos del 80 al 8081
+  # Para observar esto último, revise el archivo docker-compose.yml y verá una línea con el contenido "8081:80".
+  # Esto se realiza para poder darle visibilidad a los puertos de la maquina virtual y además para que no se
+  # solapen los puertos con los de nuestra equipo en el caso de que ese número de puerto este en uso.
+
+  config.vm.network "forwarded_port", guest: 8081, host: 8081
+  config.vm.network "forwarded_port", guest: 8082, host: 8082
+  config.vm.network "forwarded_port", guest: 4400, host: 4400
+  # Puerto en que escuchar el servidor maestro de Puppet
+  config.vm.network "forwarded_port", guest: 8140, host: 8140
 
   # Create a private network, which allows host-only access to the machine
   # using a specific IP.
@@ -28,7 +33,8 @@ Vagrant.configure("2") do |config|
   # your network.
   # config.vm.network "public_network"
 
-  # configuración del nombre de maquina 
+
+  # configuración del nombre de maquina
   config.vm.hostname = "utn-devops.localhost"
   config.vm.provider "virtualbox" do |v|
 	v.name = "utn-devops-vagrant-ubuntu"
@@ -38,7 +44,7 @@ Vagrant.configure("2") do |config|
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
   # config.vm.synced_folder "../data", "/vagrant_data"
-  # 
+  #
   # Mapeo de directorios que se comparten entre la maquina virtual y nuestro equipo. En este caso es
   # el propio directorio donde está el archivo  y el directorio "/vagrant" dentro de la maquina virtual.
   config.vm.synced_folder ".", "/vagrant"
@@ -52,7 +58,7 @@ Vagrant.configure("2") do |config|
   #   # Display the VirtualBox GUI when booting the machine
   #   vb.gui = true
   #
-  #   
+  #
   # Customize the amount of memory on the VM:
     vb.memory = "1024"
   end
@@ -74,13 +80,27 @@ Vagrant.configure("2") do |config|
   #  echo "I am provisioning..."
   #  date > /etc/vagrant_provisioned_at
   #SHELL
-  
-  # Copia el archivo de configuración del servidor web
-  config.vm.provision "file", source: "Configs/devops.site.conf", destination: "/tmp/devops.site.conf"
-  
-  # En este archivo tendremos el provisionamiento de software necesario para nuestra 
-  # maquina virtual. Por ejemplo, servidor web, servidor de base de datos, etc.
-  config.vm.provision :shell, path: "Vagrant.bootstrap.sh", run: "always"
-  
+
+  # Con esta sentencia lo que hara Vagrant es copiar el archivo a la máquina Ubuntu.
+  # Además de usarlo como ejemplo para distinguir dos maneras de aprovisionamiento el archivo contiene
+  # una definición del firewall de Ubuntu para permitir el tráfico de red que se redirecciona internamente, configuración
+  # necesaria para Docker. Luego será copiado al lugar correcto por el script Vagrant.bootstrap.sh
+  config.vm.provision "file", source: "hostConfigs/ufw", destination: "/tmp/utw"
+  config.vm.provision "file", source: "hostConfigs/etc_hosts.txt", destination: "/tmp/etc_hosts.txt"
+  # Archivos de Puppet
+  config.vm.provision "file", source: "hostConfigs/puppet/site.pp", destination: "/tmp/site.pp"
+  config.vm.provision "file", source: "hostConfigs/puppet/init.pp", destination: "/tmp/init.pp"
+  config.vm.provision "file", source: "hostConfigs/puppet/init_jenkins.pp", destination: "/tmp/init_jenkins.pp"
+  config.vm.provision "file", source: "hostConfigs/puppet/puppet-master.conf", destination: "/tmp/puppet-master.conf"
+  config.vm.provision "file", source: "hostConfigs/puppet/.env", destination: "/tmp/env"
+  # Archivo para Jenkins
+  config.vm.provision "file", source: "hostConfigs/jenkins/default_jenkins", destination: "/tmp/jenkins_default"
+  config.vm.provision "file", source: "hostConfigs/jenkins/init_d", destination: "/tmp/jenkins_init_d"
+
+  # Con esta sentencia lo que hara Vagrant es transferir este archivo a la máquina Ubuntu
+  # y ejecutarlo una vez iniciado. En este caso ahora tendrá el aprovisionamiento para la instalación de Docker
+  config.vm.provision :shell, path: "Vagrant.bootstrap.sh"
+
+  #
 
 end
